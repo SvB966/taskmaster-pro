@@ -1,24 +1,15 @@
 import { Task } from '../types';
 
-const STORAGE_KEY = 'taskmanager_db_v1';
+const API_URL = 'http://localhost:3001/api/tasks';
 
 export const taskService = {
-  getAllTasks: (): Task[] => {
-    try {
-      const data = localStorage.getItem(STORAGE_KEY);
-      return data ? JSON.parse(data) : [];
-    } catch (e) {
-      console.error("Failed to load tasks", e);
-      return [];
-    }
+  getAllTasks: async (): Promise<Task[]> => {
+    const response = await fetch(API_URL);
+    if (!response.ok) throw new Error('Failed to fetch tasks');
+    return response.json();
   },
 
-  saveAllTasks: (tasks: Task[]) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-  },
-
-  createTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task => {
-    const tasks = taskService.getAllTasks();
+  createTask: async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task> => {
     const newTask: Task = {
       ...task,
       // Ensure defaults if not provided (handling legacy calls or partial objects)
@@ -28,26 +19,35 @@ export const taskService = {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-    tasks.push(newTask);
-    taskService.saveAllTasks(tasks);
-    return newTask;
+    
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newTask),
+    });
+
+    if (!response.ok) throw new Error('Failed to create task');
+    return response.json();
   },
 
-  updateTask: (updatedTask: Task): Task => {
-    const tasks = taskService.getAllTasks();
-    const index = tasks.findIndex(t => t.id === updatedTask.id);
-    if (index !== -1) {
-      tasks[index] = { ...updatedTask, updatedAt: Date.now() };
-      taskService.saveAllTasks(tasks);
-      return tasks[index];
-    }
-    throw new Error('Task not found');
+  updateTask: async (updatedTask: Task): Promise<Task> => {
+    const taskToUpdate = { ...updatedTask, updatedAt: Date.now() };
+    const response = await fetch(`${API_URL}/${updatedTask.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(taskToUpdate),
+    });
+
+    if (!response.ok) throw new Error('Failed to update task');
+    return response.json();
   },
 
-  deleteTask: (taskId: string) => {
-    const tasks = taskService.getAllTasks();
-    const filtered = tasks.filter(t => t.id !== taskId);
-    taskService.saveAllTasks(filtered);
+  deleteTask: async (taskId: string): Promise<void> => {
+    const response = await fetch(`${API_URL}/${taskId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) throw new Error('Failed to delete task');
   }
 };
 

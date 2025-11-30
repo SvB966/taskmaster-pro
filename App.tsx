@@ -15,6 +15,7 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState(getToday()); // The specific day selected
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'calendar' | 'dashboard'>('calendar');
 
   // Dark Mode State
@@ -41,28 +42,54 @@ export default function App() {
 
   // Load tasks on mount
   useEffect(() => {
-    const loadTasks = () => {
-      const storedTasks = taskService.getAllTasks();
-      setTasks(storedTasks);
-      setLoading(false);
+    const loadTasks = async () => {
+      try {
+        setLoading(true);
+        const storedTasks = await taskService.getAllTasks();
+        setTasks(storedTasks);
+        setError(null);
+      } catch (err) {
+        console.error(err);
+        setError('Failed to load tasks. Please ensure the backend server is running.');
+      } finally {
+        setLoading(false);
+      }
     };
     loadTasks();
   }, []);
 
   // CRUD Operations
-  const handleCreateTask = (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newTask = taskService.createTask(task);
-    setTasks(prev => [...prev, newTask]);
+  const handleCreateTask = async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const newTask = await taskService.createTask(task);
+      setTasks(prev => [...prev, newTask]);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to create task');
+    }
   };
 
-  const handleUpdateTask = (updatedTask: Task) => {
-    const savedTask = taskService.updateTask(updatedTask);
-    setTasks(prev => prev.map(t => t.id === savedTask.id ? savedTask : t));
+  const handleUpdateTask = async (updatedTask: Task) => {
+    try {
+      const savedTask = await taskService.updateTask(updatedTask);
+      setTasks(prev => prev.map(t => t.id === savedTask.id ? savedTask : t));
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to update task');
+    }
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    taskService.deleteTask(taskId);
-    setTasks(prev => prev.filter(t => t.id !== taskId));
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      await taskService.deleteTask(taskId);
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to delete task');
+    }
   };
 
   const handleMonthChange = (monthIndex: number) => {
@@ -79,6 +106,15 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-100 dark:bg-slate-900 transition-colors duration-200">
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative z-50" role="alert">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{error}</span>
+          <span className="absolute top-0 bottom-0 right-0 px-4 py-3" onClick={() => setError(null)}>
+            <svg className="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
+          </span>
+        </div>
+      )}
       {/* Top Header / Navigation Bar simulating the "Tabs" look */}
       <Header 
         currentDate={currentDate} 
